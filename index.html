@@ -3,155 +3,158 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neon Dash</title>
+    <title>Neon Dash Pro</title>
     <style>
-        body {
-            margin: 0;
-            background: #0a0a0a;
-            color: #ffffff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
-        }
-        canvas {
-            border: 2px solid #333;
-            border-radius: 8px;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
-            background: #111;
-            cursor: none;
-        }
-        .ui {
-            position: absolute;
-            top: 20px;
-            text-align: center;
-            pointer-events: none;
-        }
-        h1 { font-weight: 300; letter-spacing: 2px; margin: 0; color: #00f2ff; }
-        .score { font-size: 24px; opacity: 0.8; }
+        body { margin: 0; background: #0a0a0a; color: #fff; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        canvas { border: 2px solid #333; border-radius: 8px; background: #111; cursor: none; }
+        .menu { position: absolute; background: rgba(0,0,0,0.85); padding: 30px; border-radius: 15px; text-align: center; border: 1px solid #00f2ff; z-index: 10; }
+        .ui { position: absolute; top: 10px; width: 800px; display: flex; justify-content: space-between; pointer-events: none; }
+        h1 { color: #00f2ff; letter-spacing: 5px; margin-top: 0; }
+        button { background: transparent; border: 1px solid #00f2ff; color: #00f2ff; padding: 10px 20px; margin: 10px; cursor: pointer; transition: 0.3s; font-size: 16px; }
+        button:hover { background: #00f2ff; color: #000; box-shadow: 0 0 15px #00f2ff; }
+        .stat { color: #00f2ff; font-size: 18px; text-shadow: 0 0 5px #00f2ff; }
     </style>
 </head>
 <body>
 
-    <div class="ui">
+    <div id="startMenu" class="menu">
         <h1>NEON DASH</h1>
-        <div class="score" id="score">Score: 0</div>
+        <p>Avoid enemies and walls. Survive to level up.</p>
+        <button onclick="startGame(1)">EASY</button>
+        <button onclick="startGame(1.5)">MEDIUM</button>
+        <button onclick="startGame(2.5)">HARD</button>
+    </div>
+
+    <div class="ui">
+        <div class="stat" id="scoreUI">Score: 0</div>
+        <div class="stat" id="levelUI">Level: 1</div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
-    <h3 style='color:Red'> Save your blue player from dashing by moving mouse</h3>
+
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const scoreElement = document.getElementById('score');
+        canvas.width = 800; canvas.height = 500;
 
-        // Set dimensions
-        canvas.width = 800;
-        canvas.height = 500;
+        let score = 0, level = 1, gameActive = false, difficultyMult = 1;
+        let player = { x: 400, y: 400, size: 15 };
+        let enemies = [], walls = [];
 
-        let score = 0;
-        let gameActive = true;
+        function startGame(mult) {
+            difficultyMult = mult;
+            score = 0; level = 1; enemies = []; gameActive = true;
+            document.getElementById('startMenu').style.display = 'none';
+            generateWalls();
+            spawnEnemy();
+            gameLoop();
+        }
 
-        const player = {
-            x: 400,
-            y: 250,
-            size: 20,
-            color: '#00f2ff'
-        };
+        function generateWalls() {
+            walls = [];
+            // Level-based wall generation logic
+            for(let i=0; i < level + 2; i++) {
+                walls.push({
+                    x: Math.random() * (canvas.width - 100) + 50,
+                    y: Math.random() * (canvas.height - 100) + 50,
+                    w: Math.random() > 0.5 ? 20 : 150,
+                    h: Math.random() > 0.5 ? 150 : 20
+                });
+            }
+        }
 
-        const enemies = [];
-        const enemySpeed = 3;
-
-        // Track mouse position
         canvas.addEventListener('mousemove', (e) => {
+            if(!gameActive) return;
             const rect = canvas.getBoundingClientRect();
-            player.x = e.clientX - rect.left;
-            player.y = e.clientY - rect.top;
+            let newX = e.clientX - rect.left;
+            let newY = e.clientY - rect.top;
+
+            // Wall Collision for Player
+            let collision = false;
+            walls.forEach(w => {
+                if(newX > w.x && newX < w.x + w.w && newY > w.y && newY < w.y + w.h) collision = true;
+            });
+
+            if(!collision) { player.x = newX; player.y = newY; }
         });
 
         function spawnEnemy() {
             if(!gameActive) return;
-            const size = 15;
-            let x, y;
-
-            // Randomly spawn from edges
-            if (Math.random() < 0.5) {
-                x = Math.random() < 0.5 ? 0 - size : canvas.width + size;
-                y = Math.random() * canvas.height;
-            } else {
-                x = Math.random() * canvas.width;
-                y = Math.random() < 0.5 ? 0 - size : canvas.height + size;
-            }
-
-            enemies.push({ x, y, size, color: '#ff0055' });
-            setTimeout(spawnEnemy, Math.max(200, 1000 - score * 5)); 
+            enemies.push({ 
+                x: Math.random() * canvas.width, 
+                y: -20, 
+                speed: (1.5 + (level * 0.5)) * difficultyMult 
+            });
+            let spawnRate = Math.max(200, 1500 - (score * 0.2));
+            setTimeout(spawnEnemy, spawnRate);
         }
 
         function update() {
             if (!gameActive) return;
-
             score++;
-            scoreElement.innerText = `Score: ${score}`;
+            document.getElementById('scoreUI').innerText = `Score: ${score}`;
 
-            enemies.forEach((enemy, index) => {
-                // Move enemy towards player
-                const dx = player.x - enemy.x;
-                const dy = player.y - enemy.y;
+            if(score % 1000 === 0) {
+                level++;
+                document.getElementById('levelUI').innerText = `Level: ${level}`;
+                generateWalls();
+            }
+
+            enemies.forEach((en, i) => {
+                const dx = player.x - en.x;
+                const dy = player.y - en.y;
                 const angle = Math.atan2(dy, dx);
                 
-                enemy.x += Math.cos(angle) * enemySpeed;
-                enemy.y += Math.sin(angle) * enemySpeed;
+                let nextX = en.x + Math.cos(angle) * en.speed;
+                let nextY = en.y + Math.sin(angle) * en.speed;
 
-                // Collision Detection
-                const dist = Math.hypot(player.x - enemy.x, player.y - enemy.y);
-                if (dist < player.size / 2 + enemy.size / 2) {
-                    gameOver();
-                }
+                // Simple AI: Stop at walls
+                let hitWall = false;
+                walls.forEach(w => {
+                    if(nextX > w.x && nextX < w.x + w.w && nextY > w.y && nextY < w.y + w.h) hitWall = true;
+                });
+
+                if(!hitWall) { en.x = nextX; en.y = nextY; }
+
+                if (Math.hypot(player.x - en.x, player.y - en.y) < 15) gameOver();
             });
         }
 
         function draw() {
-            // Clear canvas with slight trail effect
-            ctx.fillStyle = 'rgba(17, 17, 17, 0.2)';
+            ctx.fillStyle = 'rgba(10, 10, 10, 0.3)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw Player (Glow effect)
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = player.color;
-            ctx.fillStyle = player.color;
-            ctx.fillRect(player.x - player.size/2, player.y - player.size/2, player.size, player.size);
+            // Draw Walls
+            ctx.shadowBlur = 10; ctx.shadowColor = '#555';
+            ctx.fillStyle = '#222';
+            walls.forEach(w => ctx.fillRect(w.x, w.y, w.w, w.h));
+
+            // Draw Player
+            ctx.shadowColor = '#00f2ff'; ctx.fillStyle = '#00f2ff';
+            ctx.fillRect(player.x-7, player.y-7, 15, 15);
 
             // Draw Enemies
-            ctx.shadowColor = '#ff0055';
-            enemies.forEach(enemy => {
-                ctx.fillStyle = enemy.color;
+            ctx.shadowColor = '#ff0055'; ctx.fillStyle = '#ff0055';
+            enemies.forEach(en => {
                 ctx.beginPath();
-                ctx.moveTo(enemy.x, enemy.y - enemy.size);
-                ctx.lineTo(enemy.x - enemy.size, enemy.y + enemy.size);
-                ctx.lineTo(enemy.x + enemy.size, enemy.y + enemy.size);
-                ctx.closePath();
+                ctx.arc(en.x, en.y, 8, 0, Math.PI*2);
                 ctx.fill();
             });
-            ctx.shadowBlur = 0;
         }
 
         function gameOver() {
             gameActive = false;
-            alert(`Game Over! Your Score: ${score}`);
+            alert(`DEFEATED. Score: ${score} | Level: ${level}`);
             location.reload();
         }
 
         function gameLoop() {
-            update();
-            draw();
-            requestAnimationFrame(gameLoop);
+            if(gameActive) {
+                update();
+                draw();
+                requestAnimationFrame(gameLoop);
+            }
         }
-
-        spawnEnemy();
-        gameLoop();
     </script>
 </body>
 </html>
