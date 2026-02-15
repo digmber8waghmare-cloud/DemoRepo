@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Dash</title>
+    <style>
+        body {
+            margin: 0;
+            background: #0a0a0a;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        canvas {
+            border: 2px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
+            background: #111;
+            cursor: none;
+        }
+        .ui {
+            position: absolute;
+            top: 20px;
+            text-align: center;
+            pointer-events: none;
+        }
+        h1 { font-weight: 300; letter-spacing: 2px; margin: 0; color: #00f2ff; }
+        .score { font-size: 24px; opacity: 0.8; }
+    </style>
+</head>
+<body>
+
+    <div class="ui">
+        <h1>NEON DASH</h1>
+        <div class="score" id="score">Score: 0</div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+
+        // Set dimensions
+        canvas.width = 800;
+        canvas.height = 500;
+
+        let score = 0;
+        let gameActive = true;
+
+        const player = {
+            x: 400,
+            y: 250,
+            size: 20,
+            color: '#00f2ff'
+        };
+
+        const enemies = [];
+        const enemySpeed = 3;
+
+        // Track mouse position
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            player.x = e.clientX - rect.left;
+            player.y = e.clientY - rect.top;
+        });
+
+        function spawnEnemy() {
+            if(!gameActive) return;
+            const size = 15;
+            let x, y;
+
+            // Randomly spawn from edges
+            if (Math.random() < 0.5) {
+                x = Math.random() < 0.5 ? 0 - size : canvas.width + size;
+                y = Math.random() * canvas.height;
+            } else {
+                x = Math.random() * canvas.width;
+                y = Math.random() < 0.5 ? 0 - size : canvas.height + size;
+            }
+
+            enemies.push({ x, y, size, color: '#ff0055' });
+            setTimeout(spawnEnemy, Math.max(200, 1000 - score * 5)); 
+        }
+
+        function update() {
+            if (!gameActive) return;
+
+            score++;
+            scoreElement.innerText = `Score: ${score}`;
+
+            enemies.forEach((enemy, index) => {
+                // Move enemy towards player
+                const dx = player.x - enemy.x;
+                const dy = player.y - enemy.y;
+                const angle = Math.atan2(dy, dx);
+                
+                enemy.x += Math.cos(angle) * enemySpeed;
+                enemy.y += Math.sin(angle) * enemySpeed;
+
+                // Collision Detection
+                const dist = Math.hypot(player.x - enemy.x, player.y - enemy.y);
+                if (dist < player.size / 2 + enemy.size / 2) {
+                    gameOver();
+                }
+            });
+        }
+
+        function draw() {
+            // Clear canvas with slight trail effect
+            ctx.fillStyle = 'rgba(17, 17, 17, 0.2)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Player (Glow effect)
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = player.color;
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x - player.size/2, player.y - player.size/2, player.size, player.size);
+
+            // Draw Enemies
+            ctx.shadowColor = '#ff0055';
+            enemies.forEach(enemy => {
+                ctx.fillStyle = enemy.color;
+                ctx.beginPath();
+                ctx.moveTo(enemy.x, enemy.y - enemy.size);
+                ctx.lineTo(enemy.x - enemy.size, enemy.y + enemy.size);
+                ctx.lineTo(enemy.x + enemy.size, enemy.y + enemy.size);
+                ctx.closePath();
+                ctx.fill();
+            });
+            ctx.shadowBlur = 0;
+        }
+
+        function gameOver() {
+            gameActive = false;
+            alert(`Game Over! Your Score: ${score}`);
+            location.reload();
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        spawnEnemy();
+        gameLoop();
+    </script>
+</body>
+</html>
